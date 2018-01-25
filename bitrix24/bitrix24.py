@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 """Wrapper over Bitrix24 cloud API"""
 
-from json import loads
-from logging import info
-from time import sleep
+import logging
+import time
 from requests import adapters, post, exceptions
 from multidimensional_urlencode import urlencode
 
@@ -70,7 +69,7 @@ class Bitrix24(object):
             # Make API request
             r = post(url, data=encoded_parameters, timeout=self.timeout)
             # Decode response
-            result = loads(r.text)
+            result = r.json()
         except ValueError:
             result = dict(error='Error on decode api response [%s]' % r.text)
         except exceptions.ReadTimeout:
@@ -85,8 +84,7 @@ class Bitrix24(object):
             result = self.call(method, params1, params2, params3, params4)
         elif 'error' in result and result['error'] in 'QUERY_LIMIT_EXCEEDED':
             # Suspend call on two second, wait for expired limitation time by Bitrix24 API
-            print 'SLEEP =)'
-            sleep(2)
+            time.sleep(2)
             return self.call(method, params1, params2, params3, params4)
         return result
 
@@ -99,13 +97,18 @@ class Bitrix24(object):
             # Make call to oauth server
             r = post(
                 self.oauth_url,
-                params={'grant_type': 'refresh_token', 'client_id': self.client_id, 'client_secret': self.client_secret,
-                        'refresh_token': self.refresh_token})
-            result = loads(r.text)
+                params={
+                    'grant_type': 'refresh_token',
+                    'client_id': self.client_id,
+                    'client_secret': self.client_secret,
+                    'refresh_token': self.refresh_token
+                }
+            )
+            result = r.json()
             # Renew access tokens
             self.auth_token = result['access_token']
             self.refresh_token = result['refresh_token']
-            info(['Tokens', self.auth_token, self.refresh_token])
+            logging.info(['Tokens', self.auth_token, self.refresh_token])
             return True
         except (ValueError, KeyError):
             result = dict(error='Error on decode oauth response [%s]' % r.text)
